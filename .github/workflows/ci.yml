@@ -108,7 +108,7 @@ jobs:
           docker rm -f pdm
 
       - name: Vulnerability scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: pdm-api:ci
           severity: HIGH,CRITICAL
