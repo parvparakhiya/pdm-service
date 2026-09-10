@@ -17,7 +17,15 @@ RUN python -m venv /opt/venv \
         /opt/venv/bin/pip install -r requirements/api-onnx.txt; \
     else \
         /opt/venv/bin/pip install -r requirements/api.txt; \
-    fi
+    fi \
+ && /opt/venv/bin/pip uninstall -y setuptools wheel || true \
+ && /opt/venv/bin/pip uninstall -y pip || true
+
+# A serving container has no business carrying a package installer. pip,
+# setuptools and wheel are build-time tools: nothing in the request path
+# imports them, they vendor their own dependency trees (which is where four
+# of this image's CVE findings came from), and leaving an installer in a
+# production image is an attack surface, not a convenience.
 
 
 FROM python:3.11-slim AS runtime
@@ -44,6 +52,14 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --gid 10001 app \
  && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
+
+# Same reasoning for the base image's own copies.
+RUN find /usr/local/lib/python3.11/site-packages \
+      -maxdepth 1 \( -name 'pip' -o -name 'pip-*' \
+                   -o -name 'setuptools' -o -name 'setuptools-*' \
+                   -o -name 'wheel' -o -name 'wheel-*' \
+                   -o -name 'pkg_resources' \) -exec rm -rf {} + \
+ && rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.11
 
 COPY --from=builder /opt/venv /opt/venv
 

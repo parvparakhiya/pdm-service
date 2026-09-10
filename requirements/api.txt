@@ -8,6 +8,12 @@
 # locked; before go-live this should become pip-compile output from an `.in`
 # file so the whole tree is reproducible.
 #
+# starlette is pinned explicitly even though fastapi pulls it in. It is the
+# ASGI layer every request passes through, and three HIGH CVEs against 0.41.3
+# (Range-header DoS, SSRF via UNC paths in StaticFiles, form-limit bypass)
+# reached this image only because it was left to float. A dependency on the
+# request path gets its own line.
+#
 # NOT PRESENT, and deliberately so:
 #   lightgbm, scikit-learn, shap  -> were pulled in only to unpickle a SHAP
 #       TreeExplainer at startup. That made the "dependency-light ONNX serving
@@ -18,8 +24,9 @@
 #   pandas -> the domain layer is plain Python floats. Nothing in the request
 #       path needs a DataFrame once the rolling-window features are gone.
 
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-pydantic==2.10.4
-pydantic-settings==2.7.0
-prometheus-client==0.21.1
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+pydantic-settings==2.15.0
+prometheus-client==0.26.0
