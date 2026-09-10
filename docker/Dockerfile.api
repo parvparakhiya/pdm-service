@@ -33,7 +33,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 # tini reaps zombies and forwards signals, so SIGTERM reaches uvicorn and
 # in-flight requests drain instead of being cut off.
+# `apt-get upgrade` applies Debian security updates that the published base
+# image has not been rebuilt with yet. Without it the image ships known-fixed
+# CVEs until upstream cuts a new tag, and the CI vulnerability gate fails on
+# findings that are not ours to fix in code. The cost is that the OS layer is
+# no longer byte-reproducible -- pin the base by digest to bound that.
 RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends tini curl \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --gid 10001 app \
