@@ -13,8 +13,8 @@ Three problems, compounding.
     with `if probs[1] > 0.12: pred_class_idx = 1` -- a threshold whose measured
     precision was 0.06 -- the service ordered a line stop on roughly one in
     twenty healthy machines. Alert fatigue is not a UX problem here; a stop
-    order that is wrong 94% of the time gets disabled, and then the 6% that were
-    real go unactioned too.
+    order that is wrong more than nine times in ten gets disabled, and then the
+    few that were real go unactioned too.
 *   `rul <= 15` used a regressor with out-of-sample R^2 = -0.104.
 *   Nothing was expressed in money, so nobody could argue with it.
 

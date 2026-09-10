@@ -26,7 +26,7 @@ any in the training code.
 | Readiness distinct from liveness | ✗ | ✓ |
 | Authentication | ✗ none | ✓ API key, enforced in prod |
 | Errors leak internals | ✗ `detail=str(e)` | ✓ stable codes |
-| Serving image | 1.53 GB, unpickles at boot | 333 MB, no pickle |
+| Serving image | 1.53 GB, unpickles at boot | 298 MB, no pickle, no installer |
 | Predictions recorded | ✗ | ✓ audit JSONL |
 | Tests | 0 | 45 domain/service + 15 HTTP |
 
@@ -180,8 +180,9 @@ are untyped, so consumers guess.
 
 The rule engine and hazard model are closed form, so **the service needs no model
 artifacts to run**. That single fact removes the crash-loop, the pickle, the ML
-dependency stack, and the contract-resolution bug at once — 1.53 GB down to
-333 MB.
+dependency stack, and the contract-resolution bug at once. With pip, setuptools
+and wheel also stripped from the runtime image — a serving container has no use
+for a package installer — that is 1.53 GB down to 298 MB.
 
 * `app/domain/spec.py` — the deterministic detector, plus envelope *margins*, so
   the console can warn before a limit is breached rather than only after.

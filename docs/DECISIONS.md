@@ -42,8 +42,8 @@ agree exactly: HDF 1.000, PWF 1.000, OSF 1.000. The training pipeline's gate
 returned BASELINE for all four failure modes, so no learned model was deployed.
 
 **Consequences.** No artifacts on the primary path, so no crash-loop, no pickle,
-no version lock, and a **333 MB** serving image where v1 of the same application
-built to **1.53 GB** — a 4.6x reduction, measured on both images. Latency is
+no version lock, and a **298 MB** serving image where v1 of the same application
+built to **1.53 GB** — a 5.1x reduction, measured on both images. Latency is
 microseconds. Every alert is verifiable by hand. The cost is that the rules
 cannot generalise beyond the documented envelope — if the real machine deviates
 from its spec, only a model would notice, which is what the rule-versus-model

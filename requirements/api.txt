@@ -16,11 +16,12 @@
 #
 # NOT PRESENT, and deliberately so:
 #   lightgbm, scikit-learn, shap  -> were pulled in only to unpickle a SHAP
-#       TreeExplainer at startup. That made the "dependency-light ONNX serving
-#       image" ~800 MB larger, tied the artifact to the exact training-time
-#       library versions, and made `joblib.load` an arbitrary-code-execution
-#       surface on the serving path. Explanations now come from the
-#       specification rules, which are exact and need no libraries.
+#       TreeExplainer at startup. That inflated the "dependency-light ONNX
+#       serving image" by several hundred megabytes, tied the artifact to the
+#       exact training-time library versions, and made `joblib.load` an
+#       arbitrary-code-execution surface on the serving path. Explanations
+#       now come from the specification rules, which are exact and need no
+#       libraries.
 #   pandas -> the domain layer is plain Python floats. Nothing in the request
 #       path needs a DataFrame once the rolling-window features are gone.
 
