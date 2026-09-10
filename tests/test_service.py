@@ -32,7 +32,16 @@ from app.service import ScoringService                             # noqa: E402
 S = Settings()
 
 TESTS = []
-def test(fn):
+
+
+def case(fn):
+    """Register a test so this file can also run standalone:
+
+        python tests/test_service.py
+
+    Not named `test` -- pytest collects any module-level function whose name
+    starts with `test`, and would try to run this decorator as a test case.
+    """
     TESTS.append(fn)
     return fn
 
@@ -54,7 +63,7 @@ def reading(**kw) -> TelemetryIn:
 # ===========================================================================
 # THE HEADLINE DEFECT: shared mutable state across requests
 # ===========================================================================
-@test
+@case
 def test_scoring_is_idempotent():
     """Same payload twice -> identical answer.
 
@@ -69,7 +78,7 @@ def test_scoring_is_idempotent():
     assert a == b, "scoring is not idempotent"
 
 
-@test
+@case
 def test_machines_do_not_contaminate_each_other():
     """A reading from one machine must not change another machine's answer.
 
@@ -90,7 +99,7 @@ def test_machines_do_not_contaminate_each_other():
     assert clean == after, "another machine's traffic changed this machine's verdict"
 
 
-@test
+@case
 def test_concurrent_scoring_is_consistent():
     """No torn reads under the threadpool FastAPI uses for sync endpoints."""
     svc = make_service()
@@ -113,7 +122,7 @@ def test_concurrent_scoring_is_consistent():
     assert set(results) == {expected}, "concurrent results diverged"
 
 
-@test
+@case
 def test_batch_equals_sequential():
     """Batch scoring must not let readings influence one another."""
     svc = make_service()
@@ -126,7 +135,7 @@ def test_batch_equals_sequential():
 # ===========================================================================
 # Input contract
 # ===========================================================================
-@test
+@case
 def test_invalid_quality_tier_is_rejected():
     """`product_type: str` accepted anything, then OSF_LIMITS.get(tier, 12000)
     silently applied the medium threshold to it."""
@@ -138,7 +147,7 @@ def test_invalid_quality_tier_is_rejected():
         raise AssertionError(f"product_type={bad!r} should be rejected")
 
 
-@test
+@case
 def test_impossible_sensor_values_are_rejected():
     """Negative torque and 50,000 rpm were previously accepted and scored."""
     for kw in ({"torque_nm": -5.0}, {"speed_rpm": 50000.0}, {"tool_wear_min": -1.0},
@@ -150,7 +159,7 @@ def test_impossible_sensor_values_are_rejected():
         raise AssertionError(f"{kw} should be rejected")
 
 
-@test
+@case
 def test_machine_id_is_required():
     try:
         TelemetryIn(product_type="M", temp_air_k=298.2, temp_process_k=308.7,
@@ -160,7 +169,7 @@ def test_machine_id_is_required():
     raise AssertionError("machine_id must be required")
 
 
-@test
+@case
 def test_unknown_fields_are_rejected():
     try:
         reading(rul_override=0.0)
@@ -172,7 +181,7 @@ def test_unknown_fields_are_rejected():
 # ===========================================================================
 # Specification rules
 # ===========================================================================
-@test
+@case
 def test_rules_match_the_specification():
     d = spec.derive(temp_air_k=300.0, temp_process_k=306.0, speed_rpm=1300.0,
                     torque_nm=40.0, tool_wear_min=100.0, product_type="M", settings=S)
@@ -182,7 +191,7 @@ def test_rules_match_the_specification():
     assert spec.detect_hdf(d2, 1500.0, S)[0] is False     # rpm above the limit
 
 
-@test
+@case
 def test_power_envelope_both_edges():
     low = spec.derive(temp_air_k=300, temp_process_k=310, speed_rpm=900,
                       torque_nm=10, tool_wear_min=0, product_type="M", settings=S)
@@ -195,7 +204,7 @@ def test_power_envelope_both_edges():
     assert spec.detect_pwf(mid, S)[0] is False
 
 
-@test
+@case
 def test_osf_threshold_is_tier_specific():
     """L, M and H have different limits. The old default-to-12000 fallback
     silently applied the wrong one."""
@@ -210,7 +219,7 @@ def test_osf_threshold_is_tier_specific():
         assert spec.detect_osf(d2, tier, S)[0] is False, tier
 
 
-@test
+@case
 def test_evidence_is_human_readable_and_specific():
     """An operator has to be able to check the claim by hand."""
     svc = make_service()
@@ -223,7 +232,7 @@ def test_evidence_is_human_readable_and_specific():
 # ===========================================================================
 # Hazard model
 # ===========================================================================
-@test
+@case
 def test_hazard_is_monotone_and_bounded():
     prev = -1.0
     for w in range(0, 261, 5):
@@ -236,7 +245,7 @@ def test_hazard_is_monotone_and_bounded():
     assert analytic_hazard(260.0, S).expected_remaining_minutes == 0.0
 
 
-@test
+@case
 def test_empirical_hazard_matches_analytic_on_uniform_data():
     lifetimes = [200.0 + i * 0.4 for i in range(100)]      # ~Uniform(200, 240)
     a = analytic_hazard(220.0, S, horizon_minutes=10.0)
@@ -244,7 +253,7 @@ def test_empirical_hazard_matches_analytic_on_uniform_data():
     assert abs(a.p_failure_within_horizon - e.p_failure_within_horizon) < 0.06
 
 
-@test
+@case
 def test_no_learned_rul_is_reported():
     """The deleted regressor must not reappear under another name."""
     svc = make_service()
@@ -257,7 +266,7 @@ def test_no_learned_rul_is_reported():
 # ===========================================================================
 # Decision policy
 # ===========================================================================
-@test
+@case
 def test_healthy_machine_is_not_escalated():
     """The old policy escalated to IMMEDIATE_SHUTDOWN on any non-Healthy class,
     on top of a TWF threshold with 0.06 precision."""
@@ -268,7 +277,7 @@ def test_healthy_machine_is_not_escalated():
     assert out.decision.urgency == "NONE"
 
 
-@test
+@case
 def test_fired_predicate_stops_the_machine():
     svc = make_service()
     out = svc.score(reading(temp_air_k=300.0, temp_process_k=306.0, speed_rpm=1300.0,
@@ -278,7 +287,7 @@ def test_fired_predicate_stops_the_machine():
     assert any("HDF" in t for t in out.decision.triggered_by)
 
 
-@test
+@case
 def test_warning_before_the_limit_is_reached():
     """Early warning the previous argmax-only service could not produce."""
     svc = make_service()
@@ -293,7 +302,7 @@ def test_warning_before_the_limit_is_reached():
     assert any("OSF" in t for t in out.decision.triggered_by)
 
 
-@test
+@case
 def test_escalation_is_ordered_by_severity():
     svc = make_service()
     rank = {"NOMINAL": 0, "WATCH": 1, "DEGRADED": 2, "CRITICAL": 3}
@@ -305,7 +314,7 @@ def test_escalation_is_ordered_by_severity():
 # ===========================================================================
 # Joint physics plausibility — each channel in range, the combination is not
 # ===========================================================================
-@test
+@case
 def test_implausible_power_is_not_a_machine_fault():
     """The reading that motivated this layer.
 
@@ -324,7 +333,7 @@ def test_implausible_power_is_not_a_machine_fault():
     assert "thermal_gradient_excessive" in codes
 
 
-@test
+@case
 def test_implausible_reading_hides_nothing():
     """The findings are still computed and the advisory says what the verdict
     would be. Suppressing a possible breach silently would be worse than the
@@ -338,7 +347,7 @@ def test_implausible_reading_hides_nothing():
     assert "torque_nm" in out.decision.recommended_action
 
 
-@test
+@case
 def test_genuine_overload_still_stops_the_machine():
     """A real overload sits just above the envelope and must not be explained
     away as an instrument fault. 9,300 W is 1.03x the rating
@@ -352,7 +361,7 @@ def test_genuine_overload_still_stops_the_machine():
     assert out.data_quality == []
 
 
-@test
+@case
 def test_inverted_thermal_gradient_is_flagged():
     """A machine dissipating heat cannot run colder than the air around it."""
     svc = make_service()
@@ -362,7 +371,7 @@ def test_inverted_thermal_gradient_is_flagged():
     assert {i.code for i in out.data_quality} == {"thermal_gradient_inverted"}
 
 
-@test
+@case
 def test_wear_counter_advisory_does_not_suppress_the_verdict():
     """Wear beyond the specified life usually means an un-reset counter — but a
     worn tool needs replacing either way, so this must stay advisory."""
@@ -374,7 +383,7 @@ def test_wear_counter_advisory_does_not_suppress_the_verdict():
     assert out.decision.severity != "DATA_QUALITY", "advisory must not block the verdict"
 
 
-@test
+@case
 def test_plausible_readings_produce_no_issues():
     svc = make_service()
     for kw in ({"tool_wear_min": 20.0}, {"tool_wear_min": 170.0, "torque_nm": 60.0,
@@ -382,7 +391,7 @@ def test_plausible_readings_produce_no_issues():
         assert svc.score(reading(**kw), "r").data_quality == []
 
 
-@test
+@case
 def test_plausibility_can_be_disabled():
     s = Settings(plausibility_enabled=False)
     reg = ModelRegistry(s)
@@ -396,7 +405,7 @@ def test_plausibility_can_be_disabled():
 # ===========================================================================
 # Asset registry
 # ===========================================================================
-@test
+@case
 def test_unknown_machine_is_rejected_when_registry_configured():
     from app.service import UnknownMachineError
     s = Settings(known_machine_ids="CNC-014,CNC-015")
@@ -411,7 +420,7 @@ def test_unknown_machine_is_rejected_when_registry_configured():
     raise AssertionError("a machine_id outside the registry must be rejected")
 
 
-@test
+@case
 def test_empty_registry_accepts_any_machine():
     svc = make_service()
     assert svc.score(reading(machine_id="anything"), "r").machine_id == "anything"
@@ -420,7 +429,7 @@ def test_empty_registry_accepts_any_machine():
 # ===========================================================================
 # Operator-facing wording
 # ===========================================================================
-@test
+@case
 def test_no_ambiguous_power_failure_wording():
     """'power failure' means the electricity went out to anyone on a shop
     floor. The internal code stays PWF; the operator text must not."""
@@ -431,14 +440,14 @@ def test_no_ambiguous_power_failure_wording():
     assert "shaft power" in text
 
 
-@test
+@case
 def test_stop_orders_carry_a_cost_justification():
     svc = make_service()
     out = svc.score(reading(temp_air_k=300.0, temp_process_k=306.0, speed_rpm=1300.0), "r")
     assert out.decision.expected_cost_delta < 0, "a stop order must beat doing nothing"
 
 
-@test
+@case
 def test_decision_policy_pure_function():
     d = decide(fired_modes=[], envelope={"HDF": 0.1, "PWF": 0.2, "OSF": 0.1},
                p_hazard=0.0, s=S)
@@ -448,7 +457,7 @@ def test_decision_policy_pure_function():
 # ===========================================================================
 # Feature / serving contract
 # ===========================================================================
-@test
+@case
 def test_feature_vector_order_is_the_contract():
     d = spec.derive(temp_air_k=298.2, temp_process_k=308.7, speed_rpm=1408.0,
                     torque_nm=46.3, tool_wear_min=115.0, product_type="M", settings=S)
@@ -461,7 +470,7 @@ def test_feature_vector_order_is_the_contract():
     assert to_vector(shuffled) == vec, "vector must follow FEATURE_ORDER, not dict order"
 
 
-@test
+@case
 def test_missing_feature_raises_not_silently_zero():
     d = spec.derive(temp_air_k=298.2, temp_process_k=308.7, speed_rpm=1408.0,
                     torque_nm=46.3, tool_wear_min=115.0, product_type="M", settings=S)
@@ -477,13 +486,13 @@ def test_missing_feature_raises_not_silently_zero():
     raise AssertionError("a missing feature must raise, not produce a short vector")
 
 
-@test
+@case
 def test_contract_digest_is_stable():
     assert contract_digest() == contract_digest()
     assert len(contract_digest()) == 16
 
 
-@test
+@case
 def test_missing_onnx_artifact_does_not_kill_the_process():
     """The old service instantiated at import and raised, so the container
     crash-looped before FastAPI could bind a port."""
@@ -494,7 +503,7 @@ def test_missing_onnx_artifact_does_not_kill_the_process():
     assert reg.predict_proba([0.0] * len(FEATURE_ORDER)) is None
 
 
-@test
+@case
 def test_service_reports_not_ready_when_a_configured_model_failed():
     s = Settings(onnx_classifier="does_not_exist.onnx")
     reg = ModelRegistry(s)
@@ -505,7 +514,7 @@ def test_service_reports_not_ready_when_a_configured_model_failed():
     assert ScoringService(S, reg2).ready is True
 
 
-@test
+@case
 def test_onnx_with_mismatched_contract_is_refused():
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "clf.onnx"
@@ -522,7 +531,7 @@ def test_onnx_with_mismatched_contract_is_refused():
 # ===========================================================================
 # Observability
 # ===========================================================================
-@test
+@case
 def test_every_prediction_is_audited():
     """Without this, alert precision can never be measured against work orders."""
     with tempfile.TemporaryDirectory() as td:
@@ -538,14 +547,14 @@ def test_every_prediction_is_audited():
             assert key in rec, key
 
 
-@test
+@case
 def test_policy_fingerprint_changes_with_policy():
     a = Settings().fingerprint()
     b = Settings(hazard_stop_probability=0.5).fingerprint()
     assert a != b, "a policy change must be visible in the fingerprint"
 
 
-@test
+@case
 def test_rate_limiter_enforces_its_budget():
     b = TokenBucket(per_minute=5)
     allowed = sum(1 for _ in range(20) if b.allow("k"))
@@ -553,7 +562,7 @@ def test_rate_limiter_enforces_its_budget():
     assert b.allow("other-key") is True     # limits are per principal
 
 
-@test
+@case
 def test_audit_disabled_does_not_break_scoring():
     svc = make_service(PredictionAudit("/proc/cannot/write/here.jsonl"))
     assert svc.score(reading(), "r").decision.severity is not None
@@ -562,7 +571,7 @@ def test_audit_disabled_does_not_break_scoring():
 # ===========================================================================
 # Configuration safety
 # ===========================================================================
-@test
+@case
 def test_production_refuses_to_boot_without_auth():
     """The previous service had no authentication on an endpoint that can order
     a production line to stop."""
@@ -574,13 +583,13 @@ def test_production_refuses_to_boot_without_auth():
     raise AssertionError("prod must require API keys")
 
 
-@test
+@case
 def test_production_boots_with_auth():
     s = Settings(environment="prod", api_keys="k1,k2")
     assert s.api_key_set == {"k1", "k2"}
 
 
-@test
+@case
 def test_inverted_spec_bounds_are_rejected():
     for kw in ({"pwf_min_w": 9000.0, "pwf_max_w": 3500.0},
                {"tool_life_min_minutes": 240.0, "tool_life_max_minutes": 200.0}):
@@ -591,7 +600,7 @@ def test_inverted_spec_bounds_are_rejected():
         raise AssertionError(f"{kw} should be rejected")
 
 
-@test
+@case
 def test_unknown_setting_is_rejected():
     try:
         Settings(hazrd_stop_probability=0.5)      # typo
