@@ -128,13 +128,13 @@ class ModelRegistry:
             return float(row.get(1, 0.0))
         arr_out = np.asarray(proba, dtype=np.float64)
         if arr_out.ndim == 2 and arr_out.shape[1] >= 2:
-            row = arr_out[0]
-            total = float(row.sum())
+            arr_row = arr_out[0]
+            total = float(arr_row.sum())
             if not (0.99 <= total <= 1.01):
                 raise ValueError(
                     f"ONNX output does not sum to 1 (sum={total:.4f}); the export "
                     "is producing scores, not probabilities. Fix the conversion.")
-            return float(row[1])
+            return float(arr_row[1])
         return float(np.ravel(arr_out)[0])
 
     # ------------------------------------------------------------------

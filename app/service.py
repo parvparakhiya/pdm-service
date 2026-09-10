@@ -23,8 +23,8 @@ from .domain.features import build_features, to_vector
 from .domain.hazard import analytic_hazard
 from .inference import ModelRegistry
 from .observability import METRICS, PredictionAudit
-from .schemas import (DataQualityIssue, Decision, ModeFinding, PredictionOut,
-                      TelemetryIn, ToolLife)
+from .schemas import (DataQualityIssue, Decision, FailureMode, FindingSource,
+                      ModeFinding, PredictionOut, TelemetryIn, ToolLife)
 
 log = logging.getLogger("pdm.service")
 
@@ -83,9 +83,11 @@ class ScoringService:
         pwf_fired, pwf_why = spec.detect_pwf(derived, s)
         osf_fired, osf_why = spec.detect_osf(derived, reading.product_type, s)
 
-        for mode, fired_flag, why in (("HDF", hdf_fired, hdf_why),
-                                      ("PWF", pwf_fired, pwf_why),
-                                      ("OSF", osf_fired, osf_why)):
+        rule_modes: tuple[tuple[FailureMode, bool, str], ...] = (
+            ("HDF", hdf_fired, hdf_why),
+            ("PWF", pwf_fired, pwf_why),
+            ("OSF", osf_fired, osf_why))
+        for mode, fired_flag, why in rule_modes:
             findings.append(ModeFinding(
                 mode=mode, detected=fired_flag, source="specification_rule",
                 confidence=1.0,              # the predicate is the definition
@@ -95,7 +97,7 @@ class ScoringService:
 
         # ---- tool wear: hazard over an explicit horizon -------------------
         hz = analytic_hazard(reading.tool_wear_min, s)
-        twf_source = "analytic_hazard"
+        twf_source: FindingSource = "analytic_hazard"
         twf_conf = hz.p_failure_within_horizon
         twf_evidence = (
             f"Tool wear {reading.tool_wear_min:.0f} min against a specified life of "

@@ -29,6 +29,9 @@ Severity = Literal["NOMINAL", "WATCH", "DEGRADED", "CRITICAL", "DATA_QUALITY"]
 Urgency = Literal["NONE", "MONITOR", "SCHEDULE_MAINTENANCE", "STOP_MACHINE",
                   "CHECK_INSTRUMENTATION"]
 FailureMode = Literal["TWF", "HDF", "PWF", "OSF"]
+FindingSource = Literal["specification_rule", "analytic_hazard", "onnx_model"]
+ErrorCode = Literal["validation_error", "unauthorized", "rate_limited",
+                    "not_ready", "internal_error", "unknown_machine"]
 
 
 class TelemetryIn(BaseModel):
@@ -61,7 +64,7 @@ class ModeFinding(BaseModel):
     """One failure mode, with the evidence that produced the verdict."""
     mode: FailureMode
     detected: bool
-    source: Literal["specification_rule", "analytic_hazard", "onnx_model"]
+    source: FindingSource
     # Exact for rules; a probability for the hazard and any model.
     confidence: float = Field(..., ge=0.0, le=1.0)
     envelope_used: float | None = Field(
@@ -143,6 +146,5 @@ class ReadinessOut(BaseModel):
 
 class ErrorOut(BaseModel):
     error: str
-    code: Literal["validation_error", "unauthorized", "rate_limited",
-                  "not_ready", "internal_error", "unknown_machine"]
+    code: ErrorCode
     request_id: str

@@ -33,8 +33,8 @@ from .config import API_VERSION, SERVICE_VERSION, Settings, get_settings
 from .inference import ModelRegistry
 from .observability import (METRICS, PredictionAudit, TokenBucket, configure_logging,
                             new_request_id, request_id_var)
-from .schemas import (BatchPredictionOut, BatchTelemetryIn, ErrorOut, HealthOut,
-                      PredictionOut, ReadinessOut, TelemetryIn)
+from .schemas import (BatchPredictionOut, BatchTelemetryIn, ErrorCode, ErrorOut,
+                      HealthOut, PredictionOut, ReadinessOut, TelemetryIn)
 from .service import ScoringService, UnknownMachineError
 
 log = logging.getLogger("pdm.api")
@@ -231,7 +231,9 @@ async def score_batch(payload: BatchTelemetryIn, request: Request,
 # ---------------------------------------------------------------------------
 # Error handling: stable codes out, detail to the log
 # ---------------------------------------------------------------------------
-_CODES = {401: "unauthorized", 429: "rate_limited", 503: "not_ready", 422: "validation_error"}
+_CODES: dict[int, ErrorCode] = {
+    401: "unauthorized", 429: "rate_limited",
+    503: "not_ready", 422: "validation_error"}
 
 
 @app.exception_handler(HTTPException)

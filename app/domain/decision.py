@@ -34,14 +34,16 @@ feel in a hotfix.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from ..config import Settings
 
 
 @dataclass(frozen=True)
 class DecisionResult:
-    severity: str
-    urgency: str
+    severity: Literal["NOMINAL", "WATCH", "DEGRADED", "CRITICAL", "DATA_QUALITY"]
+    urgency: Literal["NONE", "MONITOR", "SCHEDULE_MAINTENANCE", "STOP_MACHINE",
+                     "CHECK_INSTRUMENTATION"]
     action: str
     triggered_by: list[str]
     expected_cost_delta: float
