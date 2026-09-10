@@ -137,8 +137,8 @@ def decide(*, fired_modes: list[str], envelope: dict[str, float],
         return DecisionResult(
             severity="DEGRADED", urgency="SCHEDULE_MAINTENANCE",
             action=(f"Schedule maintenance this shift. {worst:.0%} of the "
-                    f"{max(critical, key=critical.get)} envelope is consumed; the machine is "
-                    "still inside spec but has little headroom left."),
+                    f"{max(critical, key=lambda m: critical[m])} envelope is consumed; "
+                    "the machine is still inside spec but has little headroom left."),
             triggered_by=triggered,
             expected_cost_delta=_expected_cost_delta(max(p_hazard, 0.25), acting=True, s=s))
 
@@ -159,7 +159,8 @@ def decide(*, fired_modes: list[str], envelope: dict[str, float],
         return DecisionResult(
             severity="WATCH", urgency="MONITOR",
             action=("No action required. Trending toward the "
-                    f"{max(warning, key=warning.get)} limit; keep it on the watch list."),
+                    f"{max(warning, key=lambda m: warning[m])} limit; keep it on the "
+                    "watch list."),
             triggered_by=triggered,
             expected_cost_delta=0.0)
 

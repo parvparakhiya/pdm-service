@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import Any
 from pathlib import Path
 from typing import Literal
 
@@ -37,7 +38,9 @@ LoadState = Literal["loaded", "disabled", "failed"]
 
 @dataclass
 class ClassifierHandle:
-    session: object
+    # onnxruntime is an optional dependency, so the session cannot be typed
+    # here without importing it unconditionally.
+    session: Any
     input_name: str
     mode: str
     threshold: float

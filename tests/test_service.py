@@ -32,7 +32,9 @@ from app.service import ScoringService                             # noqa: E402
 S = Settings()
 
 TESTS = []
-def test(fn): TESTS.append(fn); return fn
+def test(fn):
+    TESTS.append(fn)
+    return fn
 
 
 def make_service(audit=None) -> ScoringService:
@@ -308,7 +310,8 @@ def test_implausible_power_is_not_a_machine_fault():
     """The reading that motivated this layer.
 
     100 Nm at 1408 rpm is 14,744 W on a machine rated to 9,000 W. Every
-    channel passes its own bound; the combination is impossible. The correct
+    channel passes its own bound
+    the combination is impossible. The correct
     advisory is to check the transducers, not to stop the line.
     """
     svc = make_service()
@@ -338,7 +341,8 @@ def test_implausible_reading_hides_nothing():
 @test
 def test_genuine_overload_still_stops_the_machine():
     """A real overload sits just above the envelope and must not be explained
-    away as an instrument fault. 9,300 W is 1.03x the rating; the implausible
+    away as an instrument fault. 9,300 W is 1.03x the rating
+    the implausible
     threshold is 1.5x."""
     svc = make_service()
     # 63 Nm at 1410 rpm -> ~9,300 W
@@ -381,7 +385,8 @@ def test_plausible_readings_produce_no_issues():
 @test
 def test_plausibility_can_be_disabled():
     s = Settings(plausibility_enabled=False)
-    reg = ModelRegistry(s); reg.load()
+    reg = ModelRegistry(s)
+    reg.load()
     out = ScoringService(s, reg).score(
         reading(torque_nm=100.0, speed_rpm=1408.0, tool_wear_min=122.0), "r")
     assert out.data_quality == []
@@ -395,7 +400,8 @@ def test_plausibility_can_be_disabled():
 def test_unknown_machine_is_rejected_when_registry_configured():
     from app.service import UnknownMachineError
     s = Settings(known_machine_ids="CNC-014,CNC-015")
-    reg = ModelRegistry(s); reg.load()
+    reg = ModelRegistry(s)
+    reg.load()
     svc = ScoringService(s, reg)
     svc.score(reading(machine_id="CNC-014"), "ok")            # in registry
     try:
@@ -491,9 +497,11 @@ def test_missing_onnx_artifact_does_not_kill_the_process():
 @test
 def test_service_reports_not_ready_when_a_configured_model_failed():
     s = Settings(onnx_classifier="does_not_exist.onnx")
-    reg = ModelRegistry(s); reg.load()
+    reg = ModelRegistry(s)
+    reg.load()
     assert ScoringService(s, reg).ready is False
-    reg2 = ModelRegistry(S); reg2.load()
+    reg2 = ModelRegistry(S)
+    reg2.load()
     assert ScoringService(S, reg2).ready is True
 
 
@@ -505,7 +513,8 @@ def test_onnx_with_mismatched_contract_is_refused():
         (Path(td) / "clf.onnx.contract.json").write_text(json.dumps(
             {"feature_names": ["a", "b"], "digest": "deadbeefdeadbeef"}))
         s = Settings(model_dir=td, onnx_classifier="clf.onnx")
-        reg = ModelRegistry(s); reg.load()
+        reg = ModelRegistry(s)
+        reg.load()
         assert reg.state == "failed"
         assert "contract mismatch" in reg.detail
 

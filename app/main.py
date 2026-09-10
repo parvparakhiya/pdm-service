@@ -117,7 +117,8 @@ async def context_middleware(request: Request, call_next):
 
 
 def _settings() -> Settings:
-    return STATE.get("settings") or get_settings()
+    s = STATE.get("settings")
+    return s if isinstance(s, Settings) else get_settings()
 
 
 if get_settings().cors_origins:
@@ -150,9 +151,9 @@ async def rate_limit(principal: str = Depends(require_auth)) -> str:
 
 def _service() -> ScoringService:
     svc = STATE.get("service")
-    if svc is None:
+    if not isinstance(svc, ScoringService):
         raise HTTPException(status_code=503, detail="not ready")
-    return svc            # type: ignore[return-value]
+    return svc
 
 
 # ---------------------------------------------------------------------------
@@ -170,12 +171,11 @@ async def health() -> HealthOut:
 async def ready(response: Response) -> ReadinessOut:
     """Readiness. Answers 'can this process return a correct answer'."""
     svc = STATE.get("service")
-    if svc is None:
+    if not isinstance(svc, ScoringService):
         response.status_code = 503
         return ReadinessOut(ready=False, detail="starting up", rule_engine=False,
                             hazard_model=False, onnx_classifier="disabled",
                             policy_fingerprint="")
-    svc: ScoringService                                   # type: ignore[no-redef]
     info = svc.registry.readiness()
     ok = svc.ready
     if not ok:
