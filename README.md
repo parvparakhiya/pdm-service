@@ -36,6 +36,13 @@ make smoke
 
 API on `127.0.0.1:8000`, operator console on `127.0.0.1:8501`.
 
+Or run the published image without cloning anything:
+
+```bash
+docker run -p 8000:8000 -e PDM_ENVIRONMENT=dev -e PDM_API_KEYS=your-key \
+  parvparakhiya/pdm-api:latest
+```
+
 ```bash
 curl -X POST localhost:8000/api/v1/score \
   -H 'content-type: application/json' -H 'x-api-key: YOUR_KEY' \
