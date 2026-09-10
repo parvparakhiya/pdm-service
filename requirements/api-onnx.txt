@@ -1,0 +1,10 @@
+# Optional extras: only needed when PDM_ONNX_CLASSIFIER is set.
+#
+# On the AI4I 2020 dataset the training pipeline's ship/no-ship gate returned
+# BASELINE for all four failure modes, so the default image does not install
+# these at all. Build with `--build-arg WITH_ONNX=true` only when a model has
+# actually earned deployment. See models/README.md.
+
+-r api.txt
+onnxruntime==1.20.1
+numpy==2.2.1

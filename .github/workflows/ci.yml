@@ -1,0 +1,115 @@
+name: ci
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+env:
+  PDM_ENVIRONMENT: local
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements/dev.txt
+
+      - name: Lint
+        run: ruff check app ui tests
+
+      - name: Type check
+        run: mypy app --ignore-missing-imports
+
+      # Runs without a web framework, so a FastAPI problem can never mask a
+      # decision-logic regression.
+      - name: Domain and service tests
+        run: python tests/test_service.py
+
+      - name: Full suite with coverage
+        run: pytest tests/ -q --cov=app --cov-report=xml --cov-fail-under=85
+
+      # The service refuses an ONNX artifact whose contract digest does not
+      # match the code. Catch that at build time, not at 3am on a rollout.
+      - name: Feature contract digest is unchanged
+        run: |
+          python - <<'PY'
+          import sys; sys.path.insert(0, ".")
+          from app.domain.features import contract_digest, FEATURE_ORDER
+          expected = "6c41df1031b28f72"
+          actual = contract_digest()
+          if actual != expected:
+              print(f"::error::feature contract changed: {expected} -> {actual}")
+              print("Any deployed ONNX artifact must be re-exported and its "
+                    "contract.json regenerated, or the service will refuse it.")
+              print("Features:", list(FEATURE_ORDER))
+              sys.exit(1)
+          print(f"contract digest ok: {actual}")
+          PY
+
+  image:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: false
+          load: true
+          tags: pdm-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build UI image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.ui
+          push: false
+          tags: pdm-ui:ci
+
+      - name: Container must not run as root
+        run: |
+          uid=$(docker run --rm --entrypoint id pdm-api:ci -u)
+          test "$uid" != "0" || { echo "::error::image runs as root"; exit 1; }
+          echo "runs as uid $uid"
+
+      - name: Smoke test the built image
+        run: |
+          docker run -d --name pdm -p 8000:8000 \
+            -e PDM_ENVIRONMENT=dev -e PDM_API_KEYS=ci-key \
+            -e PDM_PREDICTION_LOG_ENABLED=false pdm-api:ci
+          for i in $(seq 1 30); do
+            curl -fsS localhost:8000/ready && break || sleep 2
+          done
+          curl -fsS localhost:8000/ready | tee /dev/stderr | grep -q '"ready":true'
+          # unauthenticated request must be refused
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:8000/api/v1/score \
+                 -H 'content-type: application/json' -d '{}')
+          test "$code" = "401" || { echo "::error::expected 401, got $code"; exit 1; }
+          # a valid reading must score
+          curl -fsS -X POST localhost:8000/api/v1/score \
+            -H 'content-type: application/json' -H 'x-api-key: ci-key' \
+            -d '{"machine_id":"CNC-1","product_type":"M","temp_air_k":298.2,
+                 "temp_process_k":308.7,"speed_rpm":1408,"torque_nm":46.3,
+                 "tool_wear_min":115}' | tee /dev/stderr | grep -q '"severity"'
+          docker logs pdm
+          docker rm -f pdm
+
+      - name: Vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: pdm-api:ci
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true

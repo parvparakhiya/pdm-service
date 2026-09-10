@@ -1,0 +1,60 @@
+# syntax=docker/dockerfile:1.7
+#
+# API image. Multi-stage, non-root, single process.
+#
+# Pin the base by digest in your registry. The tag alone is mutable, so `slim`
+# today and `slim` next month are different images and your build is not
+# reproducible.
+FROM python:3.11-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
+
+ARG WITH_ONNX=false
+COPY requirements/ requirements/
+RUN python -m venv /opt/venv \
+ && if [ "$WITH_ONNX" = "true" ]; then \
+        /opt/venv/bin/pip install -r requirements/api-onnx.txt; \
+    else \
+        /opt/venv/bin/pip install -r requirements/api.txt; \
+    fi
+
+
+FROM python:3.11-slim AS runtime
+
+LABEL org.opencontainers.image.title="pdm-api" \
+      org.opencontainers.image.description="Industrial predictive maintenance detector" \
+      org.opencontainers.image.source="https://github.com/parvparakhiya/pdm-service"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    PDM_LOG_FORMAT=json
+
+# tini reaps zombies and forwards signals, so SIGTERM reaches uvicorn and
+# in-flight requests drain instead of being cut off.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --gid 10001 app \
+ && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+COPY --chown=app:app app/ app/
+COPY --chown=app:app models/ models/
+
+# Audit log destination; mount a volume here in production.
+RUN mkdir -p /app/logs && chown app:app /app/logs
+VOLUME ["/app/logs"]
+
+USER app
+EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -fsS http://localhost:8000/ready || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "2", "--timeout-graceful-shutdown", "20", "--no-access-log"]

@@ -1,0 +1,68 @@
+# Local and single-host deployment.
+#
+# Two services, not one container running both from a shell. Each has its own
+# healthcheck, resource limits and restart policy, and the UI reaches the API by
+# service name rather than 127.0.0.1 — which is what made the previous split
+# impossible.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+      args:
+        WITH_ONNX: "false"       # flip to "true" only when a model has earned deployment
+    image: pdm-api:2.0.0
+    restart: unless-stopped
+    environment:
+      PDM_ENVIRONMENT: ${PDM_ENVIRONMENT:-dev}
+      PDM_LOG_LEVEL: ${PDM_LOG_LEVEL:-INFO}
+      PDM_API_KEYS: ${PDM_API_KEYS:?set PDM_API_KEYS in .env - this endpoint can stop a line}
+      PDM_RATE_LIMIT_PER_MINUTE: ${PDM_RATE_LIMIT_PER_MINUTE:-600}
+      PDM_PREDICTION_LOG_PATH: /app/logs/predictions.jsonl
+    ports:
+      - "127.0.0.1:8000:8000"    # bound to loopback; put a TLS terminator in front
+    volumes:
+      - pdm-prediction-log:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/ready"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 512M }
+        reservations: { cpus: "0.25", memory: 128M }
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ui
+    image: pdm-ui:2.0.0
+    restart: unless-stopped
+    environment:
+      PDM_API_BASE: http://api:8000
+      PDM_API_KEY: ${PDM_UI_API_KEY:?set PDM_UI_API_KEY in .env}
+      PDM_API_TIMEOUT_SECONDS: "5"
+    ports:
+      - "127.0.0.1:8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  pdm-prediction-log:

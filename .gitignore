@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+*.csv
+artifacts/manifest.json
+models/*
+!models/README.md
+.ipynb_checkpoints/
+anaconda_projects/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store

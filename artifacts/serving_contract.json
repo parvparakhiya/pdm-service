@@ -1,0 +1,23 @@
+{
+  "feature_names": [
+    "temp_air_k",
+    "temp_process_k",
+    "speed_rpm",
+    "torque_nm",
+    "tool_wear_min",
+    "temp_delta_k",
+    "power_w",
+    "overstrain_nm_min",
+    "quality_code",
+    "torque_per_rpm",
+    "power_per_kelvin",
+    "tool_life_fraction",
+    "hdf_thermal_margin",
+    "hdf_speed_margin",
+    "pwf_envelope_margin",
+    "osf_capacity_used"
+  ],
+  "dtype": "float32",
+  "schema_version": "2.0.0",
+  "digest": "6c41df1031b28f72"
+}

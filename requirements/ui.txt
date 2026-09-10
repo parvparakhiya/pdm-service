@@ -1,0 +1,6 @@
+# Operator console image. Separate from the API on purpose: the two scale
+# differently, fail differently, and the previous single container ran both
+# from one shell with `&`, so a dead API left the container reporting healthy.
+
+streamlit==1.41.1
+requests==2.32.3

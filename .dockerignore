@@ -1,0 +1,25 @@
+# Without this, `COPY . .` bakes notebooks, datasets, git history and any local
+# .env into the published image — bloat, and a credential-leak path.
+.git
+.github
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+*.ipynb
+*.csv
+*.parquet
+notebooks/
+data/
+logs/
+docs/
+tests/
+*.md
+.env
+.env.*
+!.env.example
+htmlcov/
+.coverage*
