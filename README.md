@@ -36,19 +36,34 @@ make smoke
 
 API on `127.0.0.1:8000`, operator console on `127.0.0.1:8501`.
 
-Or run the published image without cloning anything:
+### Or run the published images, without cloning anything
 
-```bash
-docker run -p 8000:8000 -e PDM_ENVIRONMENT=dev -e PDM_API_KEYS=your-key \
-  parvparakhiya/pdm-api:latest
+Multi-architecture (`linux/amd64` and `linux/arm64`), so this works on Windows,
+Linux, Intel Macs and Apple Silicon alike. The API on its own:
+
+```
+docker run -p 8000:8000 -e PDM_ENVIRONMENT=dev -e PDM_API_KEYS=demo parvparakhiya/pdm-api:latest
 ```
 
+Then `http://localhost:8000/docs` for the interactive API.
+
+With the operator console as well — two containers on a shared network, because
+the API and the UI are deliberately separate images (`docs/DECISIONS.md`,
+ADR-007) and the console reaches the API by service name, never by localhost:
+
+```
+docker network create pdm
+docker run -d --name api --network pdm -p 8000:8000 -e PDM_ENVIRONMENT=dev -e PDM_API_KEYS=demo parvparakhiya/pdm-api:latest
+docker run -d --name ui --network pdm -p 8501:8501 -e PDM_API_BASE=http://api:8000 -e PDM_API_KEY=demo parvparakhiya/pdm-ui:latest
+```
+
+Console on `http://localhost:8501`. Try torque 100 Nm at 1408 rpm to see the
+joint-physics layer return `CHECK_INSTRUMENTATION` rather than a stop order.
+
+Tear down with `docker rm -f api ui && docker network rm pdm`.
+
 ```bash
-curl -X POST localhost:8000/api/v1/score \
-  -H 'content-type: application/json' -H 'x-api-key: YOUR_KEY' \
-  -d '{"machine_id":"CNC-014","product_type":"M","temp_air_k":298.2,
-       "temp_process_k":308.7,"speed_rpm":1408,"torque_nm":46.3,
-       "tool_wear_min":115}'
+curl -X POST localhost:8000/api/v1/score -H 'content-type: application/json' -H 'x-api-key: YOUR_KEY' -d '{"machine_id":"CNC-014","product_type":"M","temp_air_k":298.2,"temp_process_k":308.7,"speed_rpm":1408,"torque_nm":46.3,"tool_wear_min":115}'
 ```
 
 Abridged — the real response returns a finding for all four modes, plus
